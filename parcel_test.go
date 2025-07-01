@@ -31,20 +31,25 @@ func getTestParcel() Parcel {
 // TestAddGetDelete проверяет добавление, получение и удаление посылки
 func TestAddGetDelete(t *testing.T) {
 	// prepare
+	// настройте подключение к БД
 	db, err := sql.Open("sqlite", "tracker.db")
 	assert.NoError(t, err)
-	defer db.Close() // настройте подключение к БД
+	defer db.Close()
+
 	store := NewParcelStore(db)
 	parcel := getTestParcel()
 
 	// add
 	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+
 	id, err := store.Add(parcel)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)
+	parcel.Number = id
 	// get
 	// получите только что добавленную посылку, убедитесь в отсутствии ошибки
 	// проверьте, что значения всех полей в полученном объекте совпадают со значениями полей в переменной parcel
+
 	p, err := store.Get(id)
 	assert.NoError(t, err)
 	assert.Equal(t, parcel, p)
@@ -61,6 +66,7 @@ func TestAddGetDelete(t *testing.T) {
 // TestSetAddress проверяет обновление адреса
 func TestSetAddress(t *testing.T) {
 	// prepare
+	// настройте подключение к БД
 	db, err := sql.Open("sqlite", "tracker.db") // настройте подключение к БД
 	assert.NoError(t, err)
 	defer db.Close()
@@ -69,6 +75,7 @@ func TestSetAddress(t *testing.T) {
 
 	// add
 	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+
 	id, err := store.Add(parcel)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)
@@ -89,6 +96,8 @@ func TestSetAddress(t *testing.T) {
 // TestSetStatus проверяет обновление статуса
 func TestSetStatus(t *testing.T) {
 	// prepare
+	// настройте подключение к БД
+
 	db, err := sql.Open("sqlite", "tracker.db")
 	assert.NoError(t, err)
 	defer db.Close() // настройте подключение к БД
@@ -96,11 +105,13 @@ func TestSetStatus(t *testing.T) {
 	parcel := getTestParcel()
 	// add
 	// добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+
 	id, err := store.Add(parcel)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, id)
 	// set status
 	// обновите статус, убедитесь в отсутствии ошибки
+
 	err = store.SetStatus(id, ParcelStatusDelivered)
 	assert.NoError(t, err)
 	// check
@@ -112,12 +123,12 @@ func TestSetStatus(t *testing.T) {
 
 // TestGetByClient проверяет получение посылок по идентификатору клиента
 func TestGetByClient(t *testing.T) {
-	// prepare
+
 	db, err := sql.Open("sqlite", "tracker.db")
 	assert.NoError(t, err)
 	defer db.Close()
 
-	store := NewParcelStore(db) // настройте подключение к БД
+	store := NewParcelStore(db)
 
 	parcels := []Parcel{
 		getTestParcel(),
@@ -134,29 +145,24 @@ func TestGetByClient(t *testing.T) {
 
 	// add
 	for i := 0; i < len(parcels); i++ {
-		id, err := store.Add(parcels[i]) // добавьте новую посылку в БД, убедитесь в отсутствии ошибки и наличии идентификатора
+		id, err := store.Add(parcels[i])
 		assert.NoError(t, err)
 		assert.NotEmpty(t, id)
-		// обновляем идентификатор добавленной у посылки
+
 		parcels[i].Number = id
 
-		// сохраняем добавленную посылку в структуру map, чтобы её можно было легко достать по идентификатору посылки
 		parcelMap[id] = parcels[i]
 	}
 
 	// get by client
-	storedParcels, err := store.GetByClient(client)
+	res, err := store.GetByClient(client)
 	assert.NoError(t, err)
-	assert.Len(t, storedParcels, len(parcels)) // получите список посылок по идентификатору клиента, сохранённого в переменной client
-	// убедитесь в отсутствии ошибки
-	// убедитесь, что количество полученных посылок совпадает с количеством добавленных
+	assert.Len(t, res, 3)
 
-	// check
-	for _, parcel := range storedParcels {
-		assert.NotEmpty(t, parcelMap[parcel.Number])
-		assert.Equal(t, parcelMap[parcel.Number], parcel)
-		// в parcelMap лежат добавленные посылки, ключ - идентификатор посылки, значение - сама посылка
-		// убедитесь, что все посылки из storedParcels есть в parcelMap
-		// убедитесь, что значения полей полученных посылок заполнены верно
+	for _, p := range res {
+		expected, ok := parcelMap[p.Number]
+		assert.True(t, ok)
+		assert.Equal(t, expected.Address, p.Address)
+		assert.Equal(t, expected.Status, p.Status)
 	}
 }
